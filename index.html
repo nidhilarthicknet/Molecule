@@ -28,7 +28,7 @@
 
 <section class="section hide" id="page-metcart"><div class="panel"><div class="eyebrow">02 · Connected storefront</div><h2>MetCart</h2><p class="muted">MetCart is the official Metxon commerce site for devices, chips, components, accessories and software. Choose a product here in Molecule, then continue to MetCart to review your cart and pay using the separate MetPay transaction password.</p><div class="notice">Your selected device configuration will be passed to MetCart where supported. Molecule does not take payment.</div><a class="btn" href="https://nidhilarthicknet.github.io/MetCart/" id="proceedMetCart">Proceed to MetCart ↗</a></div></section>
 
-<section class="section hide" id="page-launches"><div class="section-head"><div><div class="eyebrow">03 · Monthly programme</div><h2>New launches</h2><p class="muted">Monthly product families and items marked as new in MetCart.</p></div><span class="pill" id="launchMonth"></span></div><div id="launchGrid" class="grid"></div></section>
+<section class="section hide" id="page-launches"><div class="section-head"><div><div class="eyebrow">03 · Monthly programme</div><h2>New launches</h2><p class="muted">MetCart-marked new releases appear first. If the catalogue has no launch flags, Molecule rotates a monthly spotlight from available products and labels it clearly.</p></div><span class="pill" id="launchMonth"></span></div><div id="launchGrid" class="grid"></div></section>
 
 <section class="section hide" id="page-components"><div class="section-head"><div><div class="eyebrow">04 · Build your hardware</div><h2>Components</h2><p class="muted">Browse chips, processors, memory, storage, displays, batteries, cameras and operating systems.</p></div><div class="search"><input id="componentSearch" placeholder="Search components…"><button class="btn" id="componentSearchBtn">Search</button></div></div><div class="component-layout"><aside class="side-list" id="componentTypes"></aside><div id="componentGrid" class="grid"><div class="empty">Loading components…</div></div></div></section>
 
@@ -62,8 +62,19 @@ const iconFor=p=>{const s=(p.name+' '+p.category).toLowerCase();if(/phone|smartp
 function isDevice(p){return p.kind==='device'||cats.includes(categoryOf(p))||/^(Nebula(M|A|B|Z)|NebulaBook|NebulaTab|Nebula Watch)/i.test(p.name);}
 function isComponent(p){return p.kind==='chip'||p.kind==='component'||componentCats.includes(categoryOf(p))||/Enceladus|Core Upgrade|MetOS|Nebula OS|RAM|ROM|Processor|APU/i.test(p.name+' '+p.category);}
 function isAccessory(p){return p.kind==='accessory'||accessoryCats.includes(categoryOf(p))||/charger|case|protector|cable|accessory kit/i.test(p.name+' '+p.category);}
-function launchItems(){return state.products.filter(p=>p.is_new||p.isNew||/launch|monthly/i.test(p.description||''));}
-function productCard(p){return '<article class="card product"><div class="product-top"><div class="glyph">'+iconFor(p)+'</div><span class="pill">Available</span></div><h3>'+safe(p.name)+'</h3><p><span class="pill">'+safe(p.is_new||p.isNew?'New launch':categoryOf(p))+'</span></p><p>'+safe(p.description||'Metxon catalogue item')+'</p><div class="price">'+money(p.price)+'</div><div class="muted" style="font-size:12px;margin-top:3px">Base price: '+baseMoney(p.base_price??p.basePrice??p.price)+'</div><div class="product-actions"><button class="btn secondary" data-detail="'+safe(p.name)+'">Specs & configure</button><button class="btn" data-add="'+safe(p.name)+'">Add to cart ↗</button></div></article>';}
+function launchItems(){
+ const marked=state.products.filter(p=>p.is_new||p.isNew||/launch|monthly/i.test(p.description||''));
+ if(marked.length)return marked;
+ // Monthly spotlights keep this section useful when the live catalogue has no explicit launch flags.
+ // They are labelled as spotlights, not falsely presented as newly released products.
+ const products=state.products.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ if(!products.length)return [];
+ const monthIndex=new Date().getFullYear()*12+new Date().getMonth();
+ const count=Math.min(6,products.length),start=(monthIndex*count)%products.length,chosen=[];
+ for(let i=0;i<count;i++)chosen.push({...products[(start+i)%products.length],monthly_spotlight:true});
+ return chosen;
+}
+function productCard(p){return '<article class="card product"><div class="product-top"><div class="glyph">'+iconFor(p)+'</div><span class="pill">Available</span></div><h3>'+safe(p.name)+'</h3><p><span class="pill">'+safe(p.is_new||p.isNew?'New launch':p.monthly_spotlight?'Monthly spotlight':categoryOf(p))+'</span></p><p>'+safe(p.description||'Metxon catalogue item')+'</p><div class="price">'+money(p.price)+'</div><div class="muted" style="font-size:12px;margin-top:3px">Base price: '+baseMoney(p.base_price??p.basePrice??p.price)+'</div><div class="product-actions"><button class="btn secondary" data-detail="'+safe(p.name)+'">Specs & configure</button><button class="btn" data-add="'+safe(p.name)+'">Add to cart ↗</button></div></article>';}
 function renderGrid(id,items,empty){$(id).innerHTML=items.length?items.map(productCard).join(''):'<div class="empty">'+safe(empty)+'</div>';}
 function filtered(items,query){query=String(query||'').trim().toLowerCase();return items.filter(p=>!query||[p.name,p.category,p.description,p.architecture,p.processor,p.ram,p.rom].some(x=>String(x||'').toLowerCase().includes(query)));}
 function renderDevices(){const all=state.products.filter(isDevice);const cats2=['All',...new Set(all.map(categoryOf))];$('deviceFilters').innerHTML=cats2.map(c=>'<button class="chip '+(state.category===c?'active':'')+'" data-device-cat="'+safe(c)+'">'+safe(c)+'</button>').join('');renderGrid('deviceGrid',filtered(all.filter(p=>state.category==='All'||categoryOf(p)===state.category),$('deviceSearch').value),'No devices match that search.');}
